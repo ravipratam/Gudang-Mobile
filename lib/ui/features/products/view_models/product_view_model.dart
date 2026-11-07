@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:gudang_mobile/data/models/category_model.dart';
 import 'package:gudang_mobile/data/models/product_model.dart';
 import 'package:gudang_mobile/data/repositories/product_repository.dart';
@@ -51,6 +52,19 @@ class ProductViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
+  String _parseErrorMessage(Object e, {String? defaultSku}) {
+    final errStr = e.toString();
+    if (e is PostgrestException ||
+        errStr.contains('product_sku_key') ||
+        (errStr.contains('23505') && errStr.toLowerCase().contains('sku'))) {
+      final sku = (defaultSku != null && defaultSku.trim().isNotEmpty)
+          ? defaultSku.trim().toUpperCase()
+          : null;
+      return sku != null ? 'SKU "$sku" sudah terdaftar.' : 'SKU sudah terdaftar.';
+    }
+    return errStr.replaceFirst('Exception: ', '');
+  }
+
   Future<void> fetchProducts() async {
     _isLoading = true;
     _errorMessage = null;
@@ -63,7 +77,7 @@ class ProductViewModel extends ChangeNotifier {
         onlyLowStock: _filterLowStockOnly,
       );
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = _parseErrorMessage(e);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -80,7 +94,7 @@ class ProductViewModel extends ChangeNotifier {
       await fetchProducts();
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = _parseErrorMessage(e, defaultSku: product.sku);
       notifyListeners();
       return false;
     } finally {
@@ -99,7 +113,7 @@ class ProductViewModel extends ChangeNotifier {
       await fetchProducts();
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = _parseErrorMessage(e, defaultSku: product.sku);
       notifyListeners();
       return false;
     } finally {
@@ -118,7 +132,7 @@ class ProductViewModel extends ChangeNotifier {
       await fetchProducts();
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = _parseErrorMessage(e);
       notifyListeners();
       return false;
     } finally {

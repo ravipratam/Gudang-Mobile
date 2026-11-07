@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/category_model.dart';
 import '../models/product_model.dart';
 import '../services/supabase_service.dart';
@@ -116,14 +117,16 @@ class ProductRepository {
   }
 
   Future<ProductModel> addProduct(ProductModel product) async {
+    final cleanSku = product.sku.trim().toUpperCase();
+
     if (!_service.isLive) {
       await Future.delayed(const Duration(milliseconds: 300));
       // Check SKU uniqueness
       final exists = _service.mockProducts.any(
-        (p) => p.sku.toUpperCase() == product.sku.toUpperCase(),
+        (p) => p.sku.toUpperCase() == cleanSku,
       );
       if (exists) {
-        throw Exception('SKU "${product.sku}" sudah terdaftar pada sistem.');
+        throw Exception('SKU "$cleanSku" sudah terdaftar.');
       }
 
       final categoryName = _service.mockCategories
@@ -133,6 +136,7 @@ class ProductRepository {
 
       final newProduct = product.copyWith(
         id: 'prod-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(999)}',
+        sku: cleanSku,
         categoryName: categoryName,
         createdAt: DateTime.now(),
       );
@@ -140,23 +144,38 @@ class ProductRepository {
       return newProduct;
     }
 
-    final data = await _service.client!
-        .from('products')
-        .insert({
-          'sku': product.sku.trim().toUpperCase(),
-          'name': product.name.trim(),
-          if (product.categoryId != null) 'category_id': product.categoryId,
-          'stock': product.stock,
-          'min_stock': product.minStock,
-          if (product.location != null) 'location': product.location!.trim(),
-        })
-        .select('*, categories(name)')
-        .single();
+    try {
+      final data = await _service.client!
+          .from('products')
+          .insert({
+            'sku': cleanSku,
+            'name': product.name.trim(),
+            if (product.categoryId != null) 'category_id': product.categoryId,
+            'stock': product.stock,
+            'min_stock': product.minStock,
+            if (product.location != null) 'location': product.location!.trim(),
+          })
+          .select('*, categories(name)')
+          .single();
 
-    return ProductModel.fromJson(data);
+      return ProductModel.fromJson(data);
+    } on PostgrestException catch (e) {
+      if (e.code == '23505' ||
+          e.message.toLowerCase().contains('product_sku_key') ||
+          e.message.toLowerCase().contains('sku') ||
+          e.message.toLowerCase().contains('duplicate key')) {
+        throw Exception('SKU "$cleanSku" sudah terdaftar.');
+      }
+      throw Exception('Gagal menambahkan barang: ${e.message}');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Terjadi kesalahan saat menambahkan barang.');
+    }
   }
 
   Future<ProductModel> updateProduct(ProductModel product) async {
+    final cleanSku = product.sku.trim().toUpperCase();
+
     if (!_service.isLive) {
       await Future.delayed(const Duration(milliseconds: 300));
       final index = _service.mockProducts.indexWhere((p) => p.id == product.id);
@@ -164,31 +183,55 @@ class ProductRepository {
         throw Exception('Barang tidak ditemukan.');
       }
 
+      // Check SKU uniqueness among other products
+      final skuExists = _service.mockProducts.any(
+        (p) => p.id != product.id && p.sku.toUpperCase() == cleanSku,
+      );
+      if (skuExists) {
+        throw Exception('SKU "$cleanSku" sudah terdaftar.');
+      }
+
       final categoryName = _service.mockCategories
           .cast<CategoryModel?>()
           .firstWhere((c) => c?.id == product.categoryId, orElse: () => null)
           ?.name;
 
-      final updated = product.copyWith(categoryName: categoryName);
+      final updated = product.copyWith(
+        sku: cleanSku,
+        categoryName: categoryName,
+      );
       _service.mockProducts[index] = updated;
       return updated;
     }
 
-    final data = await _service.client!
-        .from('products')
-        .update({
-          'sku': product.sku.trim().toUpperCase(),
-          'name': product.name.trim(),
-          'category_id': product.categoryId,
-          'stock': product.stock,
-          'min_stock': product.minStock,
-          'location': product.location?.trim(),
-        })
-        .eq('id', product.id)
-        .select('*, categories(name)')
-        .single();
+    try {
+      final data = await _service.client!
+          .from('products')
+          .update({
+            'sku': cleanSku,
+            'name': product.name.trim(),
+            'category_id': product.categoryId,
+            'stock': product.stock,
+            'min_stock': product.minStock,
+            'location': product.location?.trim(),
+          })
+          .eq('id', product.id)
+          .select('*, categories(name)')
+          .single();
 
-    return ProductModel.fromJson(data);
+      return ProductModel.fromJson(data);
+    } on PostgrestException catch (e) {
+      if (e.code == '23505' ||
+          e.message.toLowerCase().contains('product_sku_key') ||
+          e.message.toLowerCase().contains('sku') ||
+          e.message.toLowerCase().contains('duplicate key')) {
+        throw Exception('SKU "$cleanSku" sudah terdaftar.');
+      }
+      throw Exception('Gagal memperbarui barang: ${e.message}');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Terjadi kesalahan saat memperbarui barang.');
+    }
   }
 
   Future<void> deleteProduct(String id) async {
@@ -198,6 +241,16 @@ class ProductRepository {
       return;
     }
 
-    await _service.client!.from('products').delete().eq('id', id);
+    try {
+      await _service.client!.from('products').delete().eq('id', id);
+    } on PostgrestException catch (e) {
+      if (e.code == '23503' || e.message.toLowerCase().contains('foreign key')) {
+        throw Exception('Barang tidak dapat dihapus karena memiliki riwayat transaksi.');
+      }
+      throw Exception('Gagal menghapus barang: ${e.message}');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Terjadi kesalahan saat menghapus barang.');
+    }
   }
 }
