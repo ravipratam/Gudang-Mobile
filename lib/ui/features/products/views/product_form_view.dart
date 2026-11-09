@@ -41,10 +41,6 @@ class _ProductFormViewState extends State<ProductFormView> {
     _locationController = TextEditingController(text: p?.location ?? '');
     _selectedCategoryId = p?.categoryId;
 
-    if (!isEditing && _skuController.text.isEmpty) {
-      _skuController.text = Formatters.generateSku('PRD');
-    }
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vm = context.read<ProductViewModel>();
       if (vm.categories.isEmpty) {

@@ -29,7 +29,7 @@ class MockPostgrestDuplicateProductRepo extends ProductRepository {
 
 void main() {
   group('ProductFormView & SKU Duplicate Notification Tests', () {
-    testWidgets('Test ProductFormView render', (WidgetTester tester) async {
+    testWidgets('Test ProductFormView render and SKU empty by default', (WidgetTester tester) async {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
@@ -44,6 +44,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
       expect(find.byType(ProductFormView), findsOneWidget);
+
+      final skuField = find.byType(TextFormField).at(0);
+      expect(tester.widget<TextFormField>(skuField).controller?.text, '');
+
+      // Tapping "Auto" button should generate SKU
+      final autoButton = find.widgetWithText(OutlinedButton, 'Auto');
+      expect(autoButton, findsOneWidget);
+      await tester.tap(autoButton);
+      await tester.pump();
+
+      expect(tester.widget<TextFormField>(skuField).controller?.text.isNotEmpty, isTrue);
+      expect(tester.widget<TextFormField>(skuField).controller?.text.startsWith('PRD-'), isTrue);
     });
 
     test('ProductRepository throws clean SKU duplicate error when SKU already exists', () async {
