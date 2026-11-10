@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:gudang_mobile/core/theme/app_theme.dart';
+import 'package:gudang_mobile/data/models/product_model.dart';
 import 'package:gudang_mobile/data/models/profile_model.dart';
 import 'package:gudang_mobile/data/repositories/auth_repository.dart';
 import 'package:gudang_mobile/ui/features/auth/view_models/auth_view_model.dart';
@@ -10,6 +11,7 @@ import 'package:gudang_mobile/ui/features/dashboard/views/dashboard_view.dart';
 import 'package:gudang_mobile/ui/features/products/view_models/product_view_model.dart';
 import 'package:gudang_mobile/ui/features/products/views/product_list_view.dart';
 import 'package:gudang_mobile/ui/features/products/views/product_form_view.dart';
+import 'package:gudang_mobile/ui/features/products/views/product_detail_view.dart';
 import 'package:gudang_mobile/ui/features/qr/view_models/scanner_view_model.dart';
 import 'package:gudang_mobile/ui/features/transactions/view_models/transaction_view_model.dart';
 
@@ -219,6 +221,82 @@ void main() {
       expect(find.text('Tambah Barang Baru'), findsOneWidget);
       expect(find.text('Tambah ke Gudang'), findsOneWidget);
       expect(find.text('Fitur Tambah Barang Dibatasi'), findsNothing);
+    });
+
+    testWidgets('ProductDetailView: Admin sees "Ubah Data" and "Hapus Barang" action buttons in AppBar', (tester) async {
+      final adminVm = AuthViewModel(authRepository: MockAuthRepository(adminProfile));
+      await adminVm.checkAuthStatus();
+
+      final sampleProduct = ProductModel(
+        id: 'prod-001',
+        sku: 'TST-001',
+        name: 'Barang Uji Coba',
+        stock: 15,
+        minStock: 5,
+        location: 'Rak A-1',
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AuthViewModel>.value(value: adminVm),
+            ChangeNotifierProvider(create: (_) => ProductViewModel()),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: ProductDetailView(product: sampleProduct),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      // Admin sees both "Ubah Data" and "Hapus Barang" buttons
+      expect(find.byTooltip('Ubah Data'), findsOneWidget);
+      expect(find.byTooltip('Hapus Barang'), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    });
+
+    testWidgets('ProductDetailView: Staff DOES NOT see "Ubah Data" or "Hapus Barang" action buttons in AppBar', (tester) async {
+      final staffVm = AuthViewModel(authRepository: MockAuthRepository(staffProfile));
+      await staffVm.checkAuthStatus();
+
+      final sampleProduct = ProductModel(
+        id: 'prod-001',
+        sku: 'TST-001',
+        name: 'Barang Uji Coba',
+        stock: 15,
+        minStock: 5,
+        location: 'Rak A-1',
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AuthViewModel>.value(value: staffVm),
+            ChangeNotifierProvider(create: (_) => ProductViewModel()),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: ProductDetailView(product: sampleProduct),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      // Staff does NOT see "Ubah Data" or "Hapus Barang" buttons
+      expect(find.byTooltip('Ubah Data'), findsNothing);
+      expect(find.byTooltip('Hapus Barang'), findsNothing);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+
+      // Staff still sees stock action buttons ('Barang Masuk (+)' and 'Barang Keluar (-)')
+      expect(find.text('Barang Masuk (+)'), findsOneWidget);
+      expect(find.text('Barang Keluar (-)'), findsOneWidget);
     });
   });
 }

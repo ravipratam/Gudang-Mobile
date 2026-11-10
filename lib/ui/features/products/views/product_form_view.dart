@@ -76,22 +76,22 @@ class _ProductFormViewState extends State<ProductFormView> {
   void _onSave() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (!isEditing) {
-      AuthViewModel? authVm;
-      try {
-        authVm = context.read<AuthViewModel>();
-      } catch (_) {
-        authVm = null;
-      }
-      if (authVm != null && !authVm.isAdmin) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Hanya akun Admin yang diizinkan menambah barang baru.'),
-            backgroundColor: AppColors.critical,
-          ),
-        );
-        return;
-      }
+    AuthViewModel? authVm;
+    try {
+      authVm = context.read<AuthViewModel>();
+    } catch (_) {
+      authVm = null;
+    }
+    if (authVm != null && !authVm.isAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isEditing
+              ? 'Hanya akun Admin yang diizinkan mengubah data barang.'
+              : 'Hanya akun Admin yang diizinkan menambah barang baru.'),
+          backgroundColor: AppColors.critical,
+        ),
+      );
+      return;
     }
 
     final productVm = context.read<ProductViewModel>();
@@ -148,8 +148,8 @@ class _ProductFormViewState extends State<ProductFormView> {
       authVm = null;
     }
 
-    final isStaffAdding = authVm != null && !authVm.isAdmin && !isEditing;
-    if (isStaffAdding) {
+    final isStaffRestricted = authVm != null && !authVm.isAdmin;
+    if (isStaffRestricted) {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
@@ -163,16 +163,18 @@ class _ProductFormViewState extends State<ProductFormView> {
               children: [
                 const Icon(Icons.lock_person_outlined, size: 64, color: AppColors.critical),
                 const SizedBox(height: 16),
-                const Text(
-                  'Fitur Tambah Barang Dibatasi',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  isEditing ? 'Fitur Ubah Data Barang Dibatasi' : 'Fitur Tambah Barang Dibatasi',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Hanya pengguna dengan akun Admin yang memiliki izin untuk menambah barang baru ke gudang.',
+                Text(
+                  isEditing
+                      ? 'Hanya pengguna dengan akun Admin yang memiliki izin untuk mengubah data barang di gudang.'
+                      : 'Hanya pengguna dengan akun Admin yang memiliki izin untuk menambah barang baru ke gudang.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(

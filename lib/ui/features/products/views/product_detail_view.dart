@@ -7,6 +7,7 @@ import 'package:gudang_mobile/ui/core/custom_button.dart';
 import 'package:gudang_mobile/ui/core/stock_badge.dart';
 import 'package:gudang_mobile/data/models/product_model.dart';
 import '../view_models/product_view_model.dart';
+import '../../auth/view_models/auth_view_model.dart';
 import 'product_form_view.dart';
 import '../../qr/views/qr_label_preview_view.dart';
 import '../../qr/views/stock_action_modal.dart';
@@ -54,57 +55,67 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   @override
   Widget build(BuildContext context) {
+    AuthViewModel? authVm;
+    try {
+      authVm = context.watch<AuthViewModel>();
+    } catch (_) {
+      authVm = null;
+    }
+    final isAdmin = authVm?.isAdmin ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Detail Barang'),
         actions: [
-          IconButton(
-            tooltip: 'Ubah Data',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () async {
-              final updated = await Navigator.push<ProductModel>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ProductFormView(productToEdit: _product),
-                ),
-              );
-              if (updated != null && mounted) {
-                setState(() => _product = updated);
-              }
-            },
-          ),
-          IconButton(
-            tooltip: 'Hapus Barang',
-            icon: const Icon(Icons.delete_outline, color: AppColors.critical),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Hapus Barang?'),
-                  content: Text('Anda yakin ingin menghapus "${_product.name}"?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Batal'),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.critical),
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Hapus'),
-                    ),
-                  ],
-                ),
-              );
+          if (isAdmin) ...[
+            IconButton(
+              tooltip: 'Ubah Data',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () async {
+                final updated = await Navigator.push<ProductModel>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProductFormView(productToEdit: _product),
+                  ),
+                );
+                if (updated != null && mounted) {
+                  setState(() => _product = updated);
+                }
+              },
+            ),
+            IconButton(
+              tooltip: 'Hapus Barang',
+              icon: const Icon(Icons.delete_outline, color: AppColors.critical),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Hapus Barang?'),
+                    content: Text('Anda yakin ingin menghapus "${_product.name}"?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Batal'),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.critical),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Hapus'),
+                      ),
+                    ],
+                  ),
+                );
 
-              if (confirm == true && context.mounted) {
-                final nav = Navigator.of(context);
-                final prodVm = context.read<ProductViewModel>();
-                await prodVm.deleteProduct(_product.id);
-                if (mounted) nav.pop();
-              }
-            },
-          ),
+                if (confirm == true && context.mounted) {
+                  final nav = Navigator.of(context);
+                  final prodVm = context.read<ProductViewModel>();
+                  await prodVm.deleteProduct(_product.id);
+                  if (mounted) nav.pop();
+                }
+              },
+            ),
+          ],
         ],
       ),
       body: SingleChildScrollView(
