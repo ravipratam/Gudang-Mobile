@@ -30,7 +30,7 @@ Aplikasi ini dirancang untuk dua tingkatan pengguna utama di lingkungan pergudan
 
 | Peran (*Role*) | Deskripsi Tanggung Jawab | Hak Akses Utama |
 |---|---|---|
-| **Administrator Gudang / Warehouse Manager** | Mengawasi keseluruhan inventaris, mengelola data master barang, dan memantau rekaman transaksi. | - Akses penuh ke seluruh fitur aplikasi.<br>- Menambah barang baru ke katalog.<br>- Mengatur kategori, kode SKU, lokasi rak, dan batas minimum stok.<br>- Melihat metrik performa gudang & riwayat mutasi lengkap.<br>- Mencetak dan mengekspor label QR Code. |
+| **Administrator Gudang / Warehouse Manager** | Mengawasi keseluruhan inventaris, mengelola data master barang, dan memantau rekaman transaksi. | - Akses penuh ke seluruh fitur aplikasi.<br>- Menambah barang baru ke katalog.<br>- Mengedit dan menghapus barang dari katalog.<br>- Mengatur kategori, kode SKU, lokasi rak, dan batas minimum stok.<br>- Melihat metrik performa gudang & riwayat mutasi lengkap.<br>- Mencetak dan mengekspor label QR Code. |
 | **Staf Lapangan / Operator Gudang** | Melakukan aktivitas fisik pergudangan di lapangan seperti penerimaan, pengambilan (*picking*), dan pengecekan stok. | - Akses operasional harian.<br>- Memindai QR Code untuk mencari barang.<br>- Melakukan input mutasi barang masuk (*IN*) dan keluar (*OUT*).<br>- Melihat detail informasi produk dan lokasi rak penyimpanan.<br>- Memeriksa status ketersediaan barang.<br>- *Dibatasi:* Tidak dapat menambah produk baru ke master katalog. |
 
 ---
