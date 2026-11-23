@@ -1,4 +1,4 @@
-# Gudang Mobile - Warehouse Management System (WMS)
+# StorageQ - Warehouse Management System (WMS)
 
 Aplikasi manajemen inventaris gudang berbasis mobile yang dirancang untuk mempermudah pencatatan, pemantauan, dan pergerakan stok barang secara real-time, akurat, dan efisien.
 
@@ -6,15 +6,15 @@ Aplikasi manajemen inventaris gudang berbasis mobile yang dirancang untuk memper
 
 ## 1. Penjelasan tentang Aplikasi
 
-**Gudang Mobile** adalah aplikasi sistem manajemen gudang (*Warehouse Management System* - WMS) berbasis perangkat bergerak (*mobile*) yang dibangun dengan **Flutter** dan **Supabase**. Aplikasi ini berfungsi sebagai solusi terpadu untuk mendigitalkan seluruh aktivitas operasional pergudangan, mulai dari pencatatan barang masuk (*inbound*), pengeluaran barang (*outbound*), monitoring stok secara berkala, hingga pencetakan label QR Code produk.
+**StorageQ** adalah aplikasi sistem manajemen gudang (*Warehouse Management System* - WMS) berbasis perangkat bergerak (*mobile*) yang dibangun dengan **Flutter** dan **Supabase**. Aplikasi ini berfungsi sebagai solusi terpadu untuk mendigitalkan seluruh aktivitas operasional pergudangan, mulai dari pencatatan barang masuk (*inbound*), pengeluaran barang (*outbound*), monitoring stok secara berkala, hingga pencetakan label QR Code produk.
 
-Dengan arsitektur berbasis **MVVM (Model-View-ViewModel)** dan manajemen state menggunakan **Provider**, Gudang Mobile menyediakan antarmuka yang responsif, intuitif, dan terintegrasi langsung dengan database awan (*cloud database*) untuk memastikan konsistensi data inventaris antarpetugas di lapangan.
+Dengan arsitektur berbasis **MVVM (Model-View-ViewModel)** dan manajemen state menggunakan **Provider**, StorageQ menyediakan antarmuka yang responsif, intuitif, dan terintegrasi langsung dengan database awan (*cloud database*) untuk memastikan konsistensi data inventaris antarpetugas di lapangan.
 
 ---
 
 ## 2. Tujuan Aplikasi
 
-Pengembangan aplikasi Gudang Mobile ditujukan untuk:
+Pengembangan aplikasi StorageQ ditujukan untuk:
 
 1. **Digitalisasi & Efisiensi Operasional**: Menggantikan pencatatan inventaris manual berbasis kertas atau spreadsheet statis dengan sistem mobile yang cepat dan terintegrasi.
 2. **Meminimalkan Kesalahan Manusia (*Human Error*)**: Mengurangi risiko salah hitung, salah ambil barang, atau duplikasi SKU (*Stock Keeping Unit*) dengan memanfaatkan pemindaian QR Code dan validasi data otomatis.

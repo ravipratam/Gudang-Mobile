@@ -47,7 +47,7 @@ class _AuthGateState extends State<AuthGate> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Gudang Mobile',
+                'StorageQ',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,

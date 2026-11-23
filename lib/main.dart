@@ -37,7 +37,7 @@ class WarehouseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gudang Mobile - WMS',
+      title: 'StorageQ - WMS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const AuthGate(),
