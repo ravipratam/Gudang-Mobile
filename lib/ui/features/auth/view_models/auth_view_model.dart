@@ -154,4 +154,127 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> updateProfileName(String newFullName) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _profile = await _authRepository.updateProfileName(newFullName);
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateAvatarBytes({
+    required List<int> bytes,
+    required String fileName,
+    required String mimeType,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final url = await _authRepository.uploadAvatar(
+        bytes: bytes,
+        fileName: fileName,
+        mimeType: mimeType,
+      );
+      _profile = await _authRepository.updateAvatarUrl(url);
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> removeAvatar() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _profile = await _authRepository.updateAvatarUrl(null, clearAvatar: true);
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateEmail({
+    required String newEmail,
+    String? currentPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _authRepository.updateEmail(
+        newEmail: newEmail,
+        currentPassword: currentPassword,
+      );
+      final refreshed = await _authRepository.getCurrentProfile();
+      _profile = refreshed ?? _profile?.copyWith(email: newEmail.trim().toLowerCase());
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _authRepository.updatePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/profile_model.dart';
 import '../services/supabase_service.dart';
@@ -26,6 +28,8 @@ class AuthRepository {
 
     final metaRole = (user.userMetadata?['role'] as String?)?.trim().toLowerCase();
     final metaName = (user.userMetadata?['full_name'] as String?)?.trim();
+    final metaAvatar = (user.userMetadata?['avatar_url'] as String?)?.trim();
+    final userEmail = user.email;
 
     try {
       final data = await _service.client!
@@ -36,7 +40,11 @@ class AuthRepository {
           .timeout(const Duration(seconds: 4));
 
       if (data != null) {
-        var profile = ProfileModel.fromJson(data);
+        var profile = ProfileModel.fromJson(
+          data,
+          fallbackEmail: userEmail,
+          fallbackAvatarUrl: metaAvatar,
+        );
         // If database profile has role 'staff' but metadata has 'admin' (e.g. database trigger defaulted to staff),
         // sync database profile with metadata role.
         if (metaRole != null && metaRole.isNotEmpty && profile.role.toLowerCase() != metaRole) {
@@ -62,6 +70,8 @@ class AuthRepository {
           id: user.id,
           fullName: targetName,
           role: targetRole,
+          email: userEmail,
+          avatarUrl: metaAvatar,
         );
         try {
           await _service.client!.from('profiles').insert(newProfile.toJson());
@@ -78,6 +88,8 @@ class AuthRepository {
         id: user.id,
         fullName: targetName,
         role: targetRole,
+        email: userEmail,
+        avatarUrl: metaAvatar,
       );
     }
   }
@@ -137,6 +149,8 @@ class AuthRepository {
                 ? metaName
                 : (response.user!.email?.split('@').first ?? 'Pengguna Gudang'),
             role: (metaRole != null && metaRole.isNotEmpty) ? metaRole : 'staff',
+            email: response.user!.email,
+            avatarUrl: (response.user!.userMetadata?['avatar_url'] as String?)?.trim(),
           );
     } on AuthException catch (e) {
       final msg = e.message.toLowerCase();
@@ -249,6 +263,7 @@ class AuthRepository {
             id: response.user!.id,
             fullName: cleanFullName,
             role: cleanRole,
+            email: cleanEmail,
           );
     } on AuthException catch (e) {
       final msg = e.message.toLowerCase();
@@ -278,5 +293,274 @@ class AuthRepository {
       return;
     }
     await _service.client?.auth.resetPasswordForEmail(email.trim());
+  }
+
+  Future<ProfileModel> updateProfileName(String newFullName) async {
+    final cleanName = newFullName.trim();
+    if (cleanName.isEmpty) {
+      throw Exception('Nama lengkap tidak boleh kosong.');
+    }
+    if (cleanName.length < 2) {
+      throw Exception('Nama lengkap minimal terdiri dari 2 karakter.');
+    }
+
+    if (!_service.isLive) {
+      final current = _service.mockCurrentUser;
+      if (current == null) {
+        throw Exception('Sesi tidak ditemukan.');
+      }
+      return await _service.updateMockProfile(
+        id: current.id,
+        fullName: cleanName,
+      );
+    }
+
+    final user = _service.client?.auth.currentUser;
+    if (user == null) {
+      throw Exception('Sesi telah berakhir. Silakan masuk kembali.');
+    }
+
+    await _service.client!.auth.updateUser(
+      UserAttributes(
+        data: {'full_name': cleanName},
+      ),
+    );
+
+    try {
+      await _service.client!.from('profiles').update({
+        'full_name': cleanName,
+      }).eq('id', user.id);
+    } catch (_) {}
+
+    final updated = await getCurrentProfile();
+    return updated ??
+        ProfileModel(
+          id: user.id,
+          fullName: cleanName,
+          role: (user.userMetadata?['role'] as String?) ?? 'staff',
+          email: user.email,
+          avatarUrl: user.userMetadata?['avatar_url'] as String?,
+        );
+  }
+
+  Future<ProfileModel> updateAvatarUrl(String? avatarUrl, {bool clearAvatar = false}) async {
+    if (!_service.isLive) {
+      final current = _service.mockCurrentUser;
+      if (current == null) {
+        throw Exception('Sesi tidak ditemukan.');
+      }
+      return await _service.updateMockProfile(
+        id: current.id,
+        avatarUrl: avatarUrl,
+        clearAvatar: clearAvatar,
+      );
+    }
+
+    final user = _service.client?.auth.currentUser;
+    if (user == null) {
+      throw Exception('Sesi telah berakhir. Silakan masuk kembali.');
+    }
+
+    await _service.client!.auth.updateUser(
+      UserAttributes(
+        data: {'avatar_url': clearAvatar ? null : avatarUrl},
+      ),
+    );
+
+    try {
+      await _service.client!.from('profiles').update({
+        'avatar_url': clearAvatar ? null : avatarUrl,
+      }).eq('id', user.id);
+    } catch (_) {}
+
+    final updated = await getCurrentProfile();
+    return updated ??
+        ProfileModel(
+          id: user.id,
+          fullName: (user.userMetadata?['full_name'] as String?) ?? 'Pengguna Gudang',
+          role: (user.userMetadata?['role'] as String?) ?? 'staff',
+          email: user.email,
+          avatarUrl: clearAvatar ? null : avatarUrl,
+        );
+  }
+
+  Future<String> uploadAvatar({
+    required List<int> bytes,
+    required String fileName,
+    required String mimeType,
+  }) async {
+    if (bytes.isEmpty) {
+      throw Exception('File foto tidak valid atau kosong.');
+    }
+
+    if (!_service.isLive) {
+      return 'data:$mimeType;base64,${base64Encode(bytes)}';
+    }
+
+    final user = _service.client?.auth.currentUser;
+    if (user == null) {
+      throw Exception('Sesi telah berakhir. Silakan masuk kembali.');
+    }
+
+    final ext = fileName.contains('.') ? fileName.split('.').last : 'jpg';
+    final storagePath = '${user.id}/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+    try {
+      await _service.client!.storage.from('avatars').uploadBinary(
+        storagePath,
+        Uint8List.fromList(bytes),
+        fileOptions: FileOptions(
+          contentType: mimeType,
+          upsert: true,
+        ),
+      );
+      final publicUrl = _service.client!.storage.from('avatars').getPublicUrl(storagePath);
+      return publicUrl;
+    } catch (_) {
+      // Fallback gracefully to base64 data URI if bucket doesn't exist
+      return 'data:$mimeType;base64,${base64Encode(bytes)}';
+    }
+  }
+
+  Future<void> updateEmail({
+    required String newEmail,
+    String? currentPassword,
+  }) async {
+    final cleanEmail = newEmail.trim().toLowerCase();
+    if (cleanEmail.isEmpty) {
+      throw Exception('Email baru tidak boleh kosong.');
+    }
+
+    final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegExp.hasMatch(cleanEmail)) {
+      throw Exception('Format email tidak valid. Masukkan email yang benar.');
+    }
+
+    if (!_service.isLive) {
+      final current = _service.mockCurrentUser;
+      if (current == null) {
+        throw Exception('Sesi tidak ditemukan.');
+      }
+      final currentEmail = current.email ?? 'admin@gudang.com';
+      if (currentEmail.toLowerCase() == cleanEmail) {
+        throw Exception('Email baru tidak boleh sama dengan email saat ini.');
+      }
+
+      if (currentPassword != null && currentPassword.isNotEmpty) {
+        final expectedPwd = _service.getMockPassword(currentEmail);
+        if (expectedPwd != null && currentPassword.trim() != expectedPwd) {
+          throw Exception('Password konfirmasi salah.');
+        }
+      }
+
+      await _service.updateMockEmail(
+        oldEmail: currentEmail,
+        newEmail: cleanEmail,
+      );
+      return;
+    }
+
+    final user = _service.client?.auth.currentUser;
+    if (user == null) {
+      throw Exception('Sesi telah berakhir. Silakan masuk kembali.');
+    }
+
+    if (user.email?.toLowerCase() == cleanEmail) {
+      throw Exception('Email baru tidak boleh sama dengan email saat ini.');
+    }
+
+    // If currentPassword is provided, verify it first
+    if (currentPassword != null && currentPassword.isNotEmpty && user.email != null) {
+      try {
+        await _service.client!.auth.signInWithPassword(
+          email: user.email!,
+          password: currentPassword.trim(),
+        );
+      } catch (_) {
+        throw Exception('Password saat ini salah. Konfirmasi password diperlukan untuk mengganti email.');
+      }
+    }
+
+    try {
+      await _service.client!.auth.updateUser(
+        UserAttributes(email: cleanEmail),
+      );
+      await _service.saveKnownRegisteredEmail(cleanEmail);
+    } on AuthException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('already registered') || (e.code ?? '').contains('user_already_exists')) {
+        throw Exception('Email tersebut sudah digunakan oleh akun lain.');
+      }
+      throw Exception('Gagal memperbarui email: ${e.message}');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Terjadi kesalahan saat memperbarui email.');
+    }
+  }
+
+  Future<void> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final cleanCurrent = currentPassword.trim();
+    final cleanNew = newPassword.trim();
+
+    if (cleanCurrent.isEmpty) {
+      throw Exception('Password saat ini wajib diisi.');
+    }
+    if (cleanNew.isEmpty) {
+      throw Exception('Password baru wajib diisi.');
+    }
+    if (cleanNew.length < 6) {
+      throw Exception('Password baru minimal harus 6 karakter.');
+    }
+    if (cleanNew == cleanCurrent) {
+      throw Exception('Password baru tidak boleh sama dengan password saat ini.');
+    }
+
+    if (!_service.isLive) {
+      final current = _service.mockCurrentUser;
+      if (current == null) {
+        throw Exception('Sesi tidak ditemukan.');
+      }
+      final currentEmail = current.email ?? 'admin@gudang.com';
+      final expected = _service.getMockPassword(currentEmail);
+      if (expected != null && cleanCurrent != expected) {
+        throw Exception('Password saat ini salah. Silakan periksa kembali password Anda.');
+      }
+
+      await _service.updateMockPassword(
+        email: currentEmail,
+        newPassword: cleanNew,
+      );
+      return;
+    }
+
+    final user = _service.client?.auth.currentUser;
+    if (user == null) {
+      throw Exception('Sesi telah berakhir. Silakan masuk kembali.');
+    }
+
+    if (user.email != null) {
+      try {
+        await _service.client!.auth.signInWithPassword(
+          email: user.email!,
+          password: cleanCurrent,
+        );
+      } catch (_) {
+        throw Exception('Password saat ini salah. Silakan periksa kembali password Anda.');
+      }
+    }
+
+    try {
+      await _service.client!.auth.updateUser(
+        UserAttributes(password: cleanNew),
+      );
+    } on AuthException catch (e) {
+      throw Exception('Gagal memperbarui password: ${e.message}');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Terjadi kesalahan saat memperbarui password.');
+    }
   }
 }

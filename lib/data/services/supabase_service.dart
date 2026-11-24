@@ -26,12 +26,14 @@ class SupabaseService {
       id: 'mock-user-123',
       fullName: 'Budi Santoso',
       role: 'admin',
+      email: 'admin@gudang.com',
       createdAt: DateTime.now().subtract(const Duration(days: 30)),
     ),
     'staff@gudang.com': ProfileModel(
       id: 'mock-user-456',
       fullName: 'Siti Rahma',
       role: 'staff',
+      email: 'staff@gudang.com',
       createdAt: DateTime.now().subtract(const Duration(days: 20)),
     ),
   };
@@ -199,23 +201,145 @@ class SupabaseService {
 
   Future<void> registerMockUser(String email, ProfileModel profile, {String? password}) async {
     final cleanEmail = email.trim().toLowerCase();
-    _mockUsers[cleanEmail] = profile;
+    final userWithEmail = profile.copyWith(email: cleanEmail);
+    _mockUsers[cleanEmail] = userWithEmail;
     if (password != null && password.isNotEmpty) {
       _mockPasswords[cleanEmail] = password;
     } else {
       _mockPasswords[cleanEmail] = 'password123';
     }
-    _mockCurrentUser = profile;
+    _mockCurrentUser = userWithEmail;
     await saveKnownRegisteredEmail(cleanEmail);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('saved_mock_user_email', cleanEmail);
-      await prefs.setString('mock_name_$cleanEmail', profile.fullName);
-      await prefs.setString('mock_role_$cleanEmail', profile.role);
-      await prefs.setString('mock_id_$cleanEmail', profile.id);
+      await prefs.setString('mock_name_$cleanEmail', userWithEmail.fullName);
+      await prefs.setString('mock_role_$cleanEmail', userWithEmail.role);
+      await prefs.setString('mock_id_$cleanEmail', userWithEmail.id);
+      if (userWithEmail.avatarUrl != null) {
+        await prefs.setString('mock_avatar_$cleanEmail', userWithEmail.avatarUrl!);
+      }
       if (password != null && password.isNotEmpty) {
         await prefs.setString('mock_pwd_$cleanEmail', password);
       }
+    } catch (_) {}
+  }
+
+  Future<ProfileModel> updateMockProfile({
+    required String id,
+    String? fullName,
+    String? avatarUrl,
+    bool clearAvatar = false,
+  }) async {
+    String? emailFound;
+    ProfileModel? existing;
+    for (final entry in _mockUsers.entries) {
+      if (entry.value.id == id) {
+        emailFound = entry.key;
+        existing = entry.value;
+        break;
+      }
+    }
+
+    if (existing == null || emailFound == null) {
+      throw Exception('Pengguna tidak ditemukan.');
+    }
+
+    final updated = existing.copyWith(
+      fullName: fullName,
+      avatarUrl: avatarUrl,
+      clearAvatar: clearAvatar,
+    );
+
+    _mockUsers[emailFound] = updated;
+    if (_mockCurrentUser?.id == id) {
+      _mockCurrentUser = updated;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (fullName != null) {
+        await prefs.setString('mock_name_$emailFound', fullName);
+      }
+      if (clearAvatar) {
+        await prefs.remove('mock_avatar_$emailFound');
+      } else if (avatarUrl != null) {
+        await prefs.setString('mock_avatar_$emailFound', avatarUrl);
+      }
+    } catch (_) {}
+
+    return updated;
+  }
+
+  Future<void> updateMockEmail({
+    required String oldEmail,
+    required String newEmail,
+  }) async {
+    final cleanOld = oldEmail.trim().toLowerCase();
+    final cleanNew = newEmail.trim().toLowerCase();
+
+    if (cleanOld == cleanNew) return;
+
+    if (_mockUsers.containsKey(cleanNew)) {
+      throw Exception('Email baru sudah digunakan oleh akun lain.');
+    }
+
+    final user = _mockUsers[cleanOld];
+    if (user == null) {
+      throw Exception('Akun tidak ditemukan.');
+    }
+
+    final updatedUser = user.copyWith(email: cleanNew);
+    _mockUsers.remove(cleanOld);
+    _mockUsers[cleanNew] = updatedUser;
+
+    final pwd = _mockPasswords.remove(cleanOld) ?? 'password123';
+    _mockPasswords[cleanNew] = pwd;
+
+    _knownRegisteredEmails.remove(cleanOld);
+    _knownRegisteredEmails.add(cleanNew);
+
+    if (_mockCurrentUser?.id == user.id) {
+      _mockCurrentUser = updatedUser;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('saved_mock_user_email', cleanNew);
+
+      // Clean up old prefs
+      await prefs.remove('mock_pwd_$cleanOld');
+      await prefs.remove('mock_name_$cleanOld');
+      await prefs.remove('mock_role_$cleanOld');
+      await prefs.remove('mock_id_$cleanOld');
+      final oldAvatar = prefs.getString('mock_avatar_$cleanOld');
+      await prefs.remove('mock_avatar_$cleanOld');
+
+      // Save new prefs
+      await prefs.setString('mock_pwd_$cleanNew', pwd);
+      await prefs.setString('mock_name_$cleanNew', updatedUser.fullName);
+      await prefs.setString('mock_role_$cleanNew', updatedUser.role);
+      await prefs.setString('mock_id_$cleanNew', updatedUser.id);
+      if (oldAvatar != null) {
+        await prefs.setString('mock_avatar_$cleanNew', oldAvatar);
+      }
+
+      final list = prefs.getStringList('known_registered_emails') ?? [];
+      list.remove(cleanOld);
+      if (!list.contains(cleanNew)) list.add(cleanNew);
+      await prefs.setStringList('known_registered_emails', list);
+    } catch (_) {}
+  }
+
+  Future<void> updateMockPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    _mockPasswords[cleanEmail] = newPassword;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('mock_pwd_$cleanEmail', newPassword);
     } catch (_) {}
   }
 
@@ -261,11 +385,14 @@ class SupabaseService {
         final name = prefs.getString('mock_name_$email');
         final role = prefs.getString('mock_role_$email');
         final id = prefs.getString('mock_id_$email');
+        final avatar = prefs.getString('mock_avatar_$email');
         if (name != null && role != null && id != null) {
           _mockUsers[email] = ProfileModel(
             id: id,
             fullName: name,
             role: role,
+            email: email,
+            avatarUrl: avatar,
           );
         }
       }

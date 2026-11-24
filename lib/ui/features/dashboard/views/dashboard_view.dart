@@ -12,6 +12,8 @@ import '../../products/views/product_detail_view.dart';
 import '../../qr/views/qr_scanner_view.dart';
 import 'package:gudang_mobile/ui/features/qr/view_models/scanner_view_model.dart';
 import '../../transactions/views/transaction_history_view.dart';
+import '../../../core/profile_avatar.dart';
+import '../../profile/views/profile_view.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({super.key});
@@ -57,6 +59,7 @@ class _DashboardViewState extends State<DashboardView> {
           _DashboardHomeContent(),
           ProductListView(),
           TransactionHistoryView(),
+          ProfileView(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -85,6 +88,11 @@ class _DashboardViewState extends State<DashboardView> {
             selectedIcon: Icon(Icons.history, color: AppColors.primary),
             label: 'Riwayat',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: AppColors.primary),
+            label: 'Profil',
+          ),
         ],
       ),
     );
@@ -103,37 +111,55 @@ class _DashboardHomeContent extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.warehouse, color: AppColors.primary, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        title: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfileView()),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  user?.fullName ?? (authVm.isLoading ? 'Memuat profil...' : 'Pengguna Gudang'),
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ProfileAvatar(
+                  name: user?.fullName ?? 'Pengguna',
+                  avatarUrl: user?.avatarUrl,
+                  radius: 18,
                 ),
-                Text(
-                  (user?.role ?? (authVm.isLoading ? 'Memuat...' : 'Pengguna')).toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.accent,
-                  ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user?.fullName ?? (authVm.isLoading ? 'Memuat profil...' : 'Pengguna Gudang'),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      (user?.role ?? (authVm.isLoading ? 'Memuat...' : 'Pengguna')).toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Profil Saya',
+            icon: const Icon(Icons.account_circle_outlined, size: 22, color: AppColors.textSecondary),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileView()),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Keluar',
             icon: const Icon(Icons.logout, size: 20, color: AppColors.textSecondary),
